@@ -1,8 +1,8 @@
 import express from "express";
-import { generateJavaCode } from "../controllers/generator.js";
+import { generateSpringBootProject } from "../controllers/generator.js";
 
 const router = express.Router();
 
-router.post("/", generateJavaCode);
+router.post("/", generateSpringBootProject);
 
 export default router;

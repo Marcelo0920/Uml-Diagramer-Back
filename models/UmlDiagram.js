@@ -25,6 +25,7 @@ const UmlLinkSchema = new mongoose.Schema({
       "aggregation",
       "generalization",
       "intermediate",
+      "dependency",
     ],
   },
   sourceMultiplicity: String,

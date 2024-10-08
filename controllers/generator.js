@@ -3,34 +3,90 @@ import fs from "fs";
 import path from "path";
 import archiver from "archiver";
 
-export const generateJavaCode = async (req, res, next) => {
+export const generateSpringBootProject = async (req, res, next) => {
   let tempDir = "";
   let zipFilePath = "";
 
   try {
-    tempDir = path.join(process.cwd(), "temp", "generated_classes");
+    const projectName = req.body.projectName || "demo";
+    const packageName = req.body.packageName || "com.example.demo";
+
+    tempDir = path.join(process.cwd(), "temp", projectName);
     await fsPromises.mkdir(tempDir, { recursive: true });
 
+    // Generate project structure
+    await generateProjectStructure(tempDir, packageName);
+
+    // Generate pom.xml
+    await generatePomXml(tempDir, projectName, packageName);
+
+    // Generate application.properties
+    await generateApplicationProperties(tempDir);
+
+    // Generate main application class
+    await generateMainClass(tempDir, packageName, projectName);
+
     for (const classInfo of req.body.classes) {
-      const { id, name, attributes, methods } = classInfo;
-      const className = capitalizeFirstLetter(name[0]); // Take the first element of the name array
-      const packageName = name[0].toLowerCase();
+      const { name, attributes, methods } = classInfo;
+      const className = capitalizeFirstLetter(name[0]);
+      const classPackage = `${packageName}`;
 
-      const classDir = path.join(tempDir, packageName);
-      await fsPromises.mkdir(classDir, { recursive: true });
+      const modelDir = path.join(
+        tempDir,
+        "src",
+        "main",
+        "java",
+        ...classPackage.split("."),
+        "model"
+      );
+      const repositoryDir = path.join(
+        tempDir,
+        "src",
+        "main",
+        "java",
+        ...classPackage.split("."),
+        "repository"
+      );
+      const serviceDir = path.join(
+        tempDir,
+        "src",
+        "main",
+        "java",
+        ...classPackage.split("."),
+        "service"
+      );
+      const controllerDir = path.join(
+        tempDir,
+        "src",
+        "main",
+        "java",
+        ...classPackage.split("."),
+        "controller"
+      );
 
-      await generateModelFile(classDir, className, attributes, methods);
-      await generateRepositoryFile(classDir, className);
-      await generateServiceFile(classDir, className);
-      await generateControllerFile(classDir, className);
+      await fsPromises.mkdir(modelDir, { recursive: true });
+      await fsPromises.mkdir(repositoryDir, { recursive: true });
+      await fsPromises.mkdir(serviceDir, { recursive: true });
+      await fsPromises.mkdir(controllerDir, { recursive: true });
+
+      await generateModelFile(
+        modelDir,
+        className,
+        attributes,
+        methods,
+        classPackage
+      );
+      await generateRepositoryFile(repositoryDir, className, classPackage);
+      await generateServiceFile(serviceDir, className, classPackage);
+      await generateControllerFile(controllerDir, className, classPackage);
     }
 
-    zipFilePath = await compressFiles(tempDir, "generated_classes");
+    zipFilePath = await compressFiles(tempDir, projectName);
 
     res.setHeader("Content-Type", "application/zip");
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=generated_classes.zip"
+      `attachment; filename=${projectName}.zip`
     );
 
     const fileStream = fs.createReadStream(zipFilePath);
@@ -44,8 +100,8 @@ export const generateJavaCode = async (req, res, next) => {
       fsPromises.unlink(zipFilePath).catch(console.error);
     });
   } catch (error) {
-    console.error("Error generating Java code:", error);
-    res.status(500).send("Error generating Java code");
+    console.error("Error generating Spring Boot project:", error);
+    res.status(500).send("Error generating Spring Boot project");
 
     // Clean up in case of error
     if (tempDir) {
@@ -59,15 +115,137 @@ export const generateJavaCode = async (req, res, next) => {
   }
 };
 
-const generateModelFile = async (dir, className, attributes, methods) => {
-  const content = `
-package com.example.${className.toLowerCase()}.model;
+const generateProjectStructure = async (projectDir, packageName) => {
+  const dirs = [
+    "src/main/java",
+    "src/main/resources",
+    "src/test/java",
+    "src/test/resources",
+  ];
+
+  for (const dir of dirs) {
+    await fsPromises.mkdir(path.join(projectDir, dir), { recursive: true });
+  }
+
+  // Create package structure
+  const packagePath = path.join(
+    projectDir,
+    "src",
+    "main",
+    "java",
+    ...packageName.split(".")
+  );
+  await fsPromises.mkdir(packagePath, { recursive: true });
+};
+
+const generatePomXml = async (projectDir, projectName, packageName) => {
+  const content = `<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.5.5</version>
+        <relativePath/>
+    </parent>
+    <groupId>${packageName}</groupId>
+    <artifactId>${projectName}</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>${projectName}</name>
+    <description>Demo project for Spring Boot</description>
+    <properties>
+        <java.version>11</java.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>`;
+
+  await fsPromises.writeFile(path.join(projectDir, "pom.xml"), content);
+};
+
+const generateApplicationProperties = async (projectDir) => {
+  const content = `spring.datasource.url=jdbc:postgresql://pg-2e17ff96-uagrm.h.aivencloud.com:20312/defaultdb?ssl=require
+spring.datasource.username=avnadmin
+spring.datasource.password=AVNS_euQIv6cvylQFPna5WrF
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.hibernate.ddl-auto=update`;
+
+  await fsPromises.writeFile(
+    path.join(projectDir, "src", "main", "resources", "application.properties"),
+    content
+  );
+};
+
+const generateMainClass = async (projectDir, packageName, projectName) => {
+  const className = `${capitalizeFirstLetter(projectName)}Application`;
+  const content = `package ${packageName};
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class ${className} {
+
+    public static void main(String[] args) {
+        SpringApplication.run(${className}.class, args);
+    }
+}`;
+
+  await fsPromises.writeFile(
+    path.join(
+      projectDir,
+      "src",
+      "main",
+      "java",
+      ...packageName.split("."),
+      `${className}.java`
+    ),
+    content
+  );
+};
+
+const generateModelFile = async (
+  dir,
+  className,
+  attributes,
+  methods,
+  packageName
+) => {
+  const content = `package ${packageName}.model;
 
 import javax.persistence.*;
 
 @Entity
 @Table(name = "${className.toLowerCase()}")
-public class Model${className} {
+public class ${className} {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -75,55 +253,57 @@ public class Model${className} {
 
     ${attributes
       .map((attr) => {
-        const [name, type] = attr
-          .substring(2)
-          .split(":")
-          .map((s) => s.trim());
+        const parts = attr.substring(2).split(":");
+        const name = parts[0].trim();
+        const type = parts[1] ? parts[1].trim() : "String"; // Default to String if type is not specified
         return `private ${mapType(type)} ${name};`;
       })
       .join("\n    ")}
 
     ${methods
-      .map((method) => {
-        const [name, returnType] = method
-          .substring(2)
-          .split(":")
-          .map((s) => s.trim());
-        const methodName = name.split("(")[0];
-        return `public ${mapType(
-          returnType
-        )} ${methodName}() {\n        // TODO: Implement method\n    }`;
+      .filter((method) => {
+        const trimmedMethod = method.trim();
+        return trimmedMethod !== "- ()" && trimmedMethod !== "-()";
       })
+      .map((method) => {
+        const parts = method.substring(2).trim().split(":");
+        const methodSignature = parts[0].trim();
+        if (!methodSignature) return ""; // Skip if method signature is empty
+        const [name, params] = methodSignature.split("(");
+        return `public void ${name.trim()}(${params || ")"} {
+        // Method stub
+    }`;
+      })
+      .filter((method) => method !== "") // Remove any empty strings from the array
       .join("\n\n    ")}
 
     // Getters and Setters
-}
-`;
-  await fsPromises.writeFile(path.join(dir, `Model${className}.java`), content);
+    ${generateGettersAndSetters(attributes)}
+}`;
+  await fsPromises.writeFile(path.join(dir, `${className}.java`), content);
 };
 
-const generateRepositoryFile = async (dir, className) => {
-  const content = `
-package com.example.${className.toLowerCase()}.repository;
+const generateRepositoryFile = async (dir, className, packageName) => {
+  const content = `package ${packageName}.repository;
 
-import com.example.${className.toLowerCase()}.model.Model${className};
+import ${packageName}.model.${className};
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
-public interface Repository${className} extends JpaRepository<Model${className}, Long> {
-}
-`;
+@Repository
+public interface ${className}Repository extends JpaRepository<${className}, Long> {
+}`;
   await fsPromises.writeFile(
-    path.join(dir, `Repository${className}.java`),
+    path.join(dir, `${className}Repository.java`),
     content
   );
 };
 
-const generateServiceFile = async (dir, className) => {
-  const content = `
-package com.example.${className.toLowerCase()}.service;
+const generateServiceFile = async (dir, className, packageName) => {
+  const content = `package ${packageName}.service;
 
-import com.example.${className.toLowerCase()}.model.Model${className};
-import com.example.${className.toLowerCase()}.repository.Repository${className};
+import ${packageName}.model.${className};
+import ${packageName}.repository.${className}Repository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -131,40 +311,38 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-public class Service${className} {
+public class ${className}Service {
 
     @Autowired
-    private Repository${className} repository;
+    private ${className}Repository repository;
 
-    public List<Model${className}> findAll() {
+    public List<${className}> findAll() {
         return repository.findAll();
     }
 
-    public Optional<Model${className}> findById(Long id) {
+    public Optional<${className}> findById(Long id) {
         return repository.findById(id);
     }
 
-    public Model${className} save(Model${className} ${className.toLowerCase()}) {
+    public ${className} save(${className} ${className.toLowerCase()}) {
         return repository.save(${className.toLowerCase()});
     }
 
     public void deleteById(Long id) {
         repository.deleteById(id);
     }
-}
-`;
+}`;
   await fsPromises.writeFile(
-    path.join(dir, `Service${className}.java`),
+    path.join(dir, `${className}Service.java`),
     content
   );
 };
 
-const generateControllerFile = async (dir, className) => {
-  const content = `
-package com.example.${className.toLowerCase()}.controller;
+const generateControllerFile = async (dir, className, packageName) => {
+  const content = `package ${packageName}.controller;
 
-import com.example.${className.toLowerCase()}.model.Model${className};
-import com.example.${className.toLowerCase()}.service.Service${className};
+import ${packageName}.model.${className};
+import ${packageName}.service.${className}Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -173,30 +351,30 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/${className.toLowerCase()}")
-public class Controller${className} {
+public class ${className}Controller {
 
     @Autowired
-    private Service${className} service;
+    private ${className}Service service;
 
     @GetMapping
-    public List<Model${className}> getAll${className}s() {
+    public List<${className}> getAll${className}s() {
         return service.findAll();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Model${className}> get${className}ById(@PathVariable Long id) {
+    public ResponseEntity<${className}> get${className}ById(@PathVariable Long id) {
         return service.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public Model${className} create${className}(@RequestBody Model${className} ${className.toLowerCase()}) {
+    public ${className} create${className}(@RequestBody ${className} ${className.toLowerCase()}) {
         return service.save(${className.toLowerCase()});
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Model${className}> update${className}(@PathVariable Long id, @RequestBody Model${className} ${className.toLowerCase()}) {
+    public ResponseEntity<${className}> update${className}(@PathVariable Long id, @RequestBody ${className} ${className.toLowerCase()}) {
         return service.findById(id)
                 .map(existing${className} -> {
                     // Update existing${className} with ${className.toLowerCase()} fields
@@ -214,10 +392,9 @@ public class Controller${className} {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
-}
-`;
+}`;
   await fsPromises.writeFile(
-    path.join(dir, `Controller${className}.java`),
+    path.join(dir, `${className}Controller.java`),
     content
   );
 };
@@ -241,15 +418,73 @@ const capitalizeFirstLetter = (string) => {
   return string.charAt(0).toUpperCase() + string.slice(1);
 };
 
+const generateGettersAndSetters = (attributes) => {
+  return attributes
+    .map((attr) => {
+      const parts = attr.substring(2).split(":");
+      const name = parts[0].trim();
+      const type = parts[1] ? mapType(parts[1].trim()) : "String";
+      const capitalizedName = capitalizeFirstLetter(name);
+      return `
+    public ${type} get${capitalizedName}() {
+        return ${name};
+    }
+
+    public void set${capitalizedName}(${type} ${name}) {
+        this.${name} = ${name};
+    }`;
+    })
+    .join("\n");
+};
+
+const getDefaultReturnStatement = (returnType) => {
+  switch (returnType.toLowerCase()) {
+    case "int":
+    case "integer":
+    case "long":
+    case "short":
+    case "byte":
+      return "return 0;";
+    case "float":
+    case "double":
+      return "return 0.0;";
+    case "boolean":
+      return "return false;";
+    case "char":
+      return "return '\\0';";
+    case "void":
+      return "";
+    default:
+      return "return null;";
+  }
+};
+
 const mapType = (type) => {
+  if (!type) return "String"; // Default to String if type is undefined or null
+
   switch (type.toLowerCase()) {
     case "number":
+    case "int":
+    case "integer":
+      return "Integer";
+    case "long":
+      return "Long";
+    case "double":
+    case "float":
       return "Double";
     case "string":
       return "String";
     case "boolean":
       return "Boolean";
-    case "undefined":
+    case "date":
+      return "java.util.Date";
+    case "localdatetime":
+      return "java.time.LocalDateTime";
+    case "localdate":
+      return "java.time.LocalDate";
+    case "bigdecimal":
+      return "java.math.BigDecimal";
+    case "void":
       return "void";
     default:
       return type; // Return the original type if not recognized
