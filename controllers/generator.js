@@ -191,7 +191,7 @@ const generatePomXml = async (projectDir, projectName, packageName) => {
 };
 
 const generateApplicationProperties = async (projectDir) => {
-  const content = `spring.datasource.url=jdbc:postgresql://pg-2e17ff96-uagrm.h.aivencloud.com:20312/defaultdb?ssl=require
+  const content = `spring.datasource.url=your db url
 spring.datasource.username=avnadmin
 spring.datasource.password=AVNS_euQIv6cvylQFPna5WrF
 spring.datasource.driver-class-name=org.postgresql.Driver
