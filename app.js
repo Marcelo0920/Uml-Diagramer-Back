@@ -19,7 +19,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "https://staging.d29zhbrzfs1bz0.amplifyapp.com/",
+    origin: "https://staging.d29zhbrzfs1bz0.amplifyapp.com",
     methods: ["GET", "POST", "UPDATE", "DELETE"],
   },
 });
