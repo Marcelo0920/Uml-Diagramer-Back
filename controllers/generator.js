@@ -192,8 +192,8 @@ const generatePomXml = async (projectDir, projectName, packageName) => {
 
 const generateApplicationProperties = async (projectDir) => {
   const content = `spring.datasource.url=your db url
-spring.datasource.username=avnadmin
-spring.datasource.password=AVNS_euQIv6cvylQFPna5WrF
+spring.datasource.username=your db user name
+spring.datasource.password=your db password
 spring.datasource.driver-class-name=org.postgresql.Driver
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
 spring.jpa.hibernate.ddl-auto=update`;
