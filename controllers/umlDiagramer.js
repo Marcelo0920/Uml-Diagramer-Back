@@ -63,13 +63,14 @@ export const addClass = async (req, res) => {
   try {
     const diagram = await UmlDiagram.findById(req.params.id);
     if (!diagram) return res.status(404).json({ message: "Diagram not found" });
-    console.log(req.body);
+
     diagram.classes.push(req.body);
     const updatedDiagram = await diagram.save();
 
     io.to(req.params.id).emit("class-added", {
       diagramId: req.params.id,
       newClass: req.body,
+      classes: diagram,
     });
     res.status(200).json(updatedDiagram);
   } catch (error) {
