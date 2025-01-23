@@ -19,7 +19,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "https://dashing-cupcake-e09a6b.netlify.app",
+    origin: "https://staging.d3673g06mz9f2q.amplifyapp.com",
     methods: ["GET", "POST", "UPDATE", "DELETE"],
   },
 });
