@@ -373,11 +373,23 @@ public class ${className}Controller {
         return service.save(${className.toLowerCase()});
     }
 
-    @PutMapping("/{id}")
+      @PutMapping("/{id}")
     public ResponseEntity<${className}> update${className}(@PathVariable Long id, @RequestBody ${className} ${className.toLowerCase()}) {
         return service.findById(id)
                 .map(existing${className} -> {
-                    // Update existing${className} with ${className.toLowerCase()} fields
+                    // Copy all non-null properties from the request body to the existing entity
+                    java.lang.reflect.Field[] fields = ${className}.class.getDeclaredFields();
+                    for (java.lang.reflect.Field field : fields) {
+                        try {
+                            field.setAccessible(true);
+                            Object value = field.get(${className.toLowerCase()});
+                            if (value != null && !field.getName().equals("id")) {
+                                field.set(existing${className}, value);
+                            }
+                        } catch (IllegalAccessException e) {
+                            // Handle exception appropriately
+                        }
+                    }
                     return ResponseEntity.ok(service.save(existing${className}));
                 })
                 .orElse(ResponseEntity.notFound().build());
